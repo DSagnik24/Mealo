@@ -1,6 +1,5 @@
 import express from "express"
-import dotenv from "dotenv"
-dotenv.config()
+import { config } from "../config.js"
 import connectDb from "./config/db.js"
 import cookieParser from "cookie-parser"
 import authRouter from "./routes/auth.routes.js"
@@ -29,7 +28,7 @@ app.set("io",io)
 
 
 
-const port=process.env.PORT || 5000
+const port=config.PORT || 5000
 app.use(cors({
     origin:["http://localhost:5173", "http://localhost:5174"],
     credentials:true

@@ -1,11 +1,12 @@
 import jwt from "jsonwebtoken"
+import { config } from "../../config.js"
 const isAuth=async (req,res,next) => {
     try {
         const token=req.cookies.token
         if(!token){
             return res.status(400).json({message:"token not found"})
         }
-        const decodeToken=jwt.verify(token,process.env.JWT_SECRET)
+        const decodeToken=jwt.verify(token,config.JWT_SECRET)
         if(!decodeToken){
  return res.status(400).json({message:"token not verify"})
         }
