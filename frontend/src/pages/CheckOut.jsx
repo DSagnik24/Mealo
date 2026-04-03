@@ -26,6 +26,8 @@ function RecenterMap({ location }) {
 function CheckOut() {
   const { location, address } = useSelector(state => state.map)
     const { cartItems ,totalAmount,userData} = useSelector(state => state.user)
+  const defaultLat = location?.lat || 28.6139;
+  const defaultLon = location?.lon || 77.2090;
   const [addressInput, setAddressInput] = useState("")
   const [paymentMethod, setPaymentMethod] = useState("cod")
   const navigate=useNavigate()
@@ -45,12 +47,23 @@ function CheckOut() {
     getAddressByLatLng(lat, lng)
   }
   const getCurrentLocation = () => {
-      const latitude=userData.location.coordinates[1]
-      const longitude=userData.location.coordinates[0]
-      dispatch(setLocation({ lat: latitude, lon: longitude }))
-      getAddressByLatLng(latitude, longitude)
-   
-
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const latitude = position.coords.latitude;
+          const longitude = position.coords.longitude;
+          dispatch(setLocation({ lat: latitude, lon: longitude }));
+          getAddressByLatLng(latitude, longitude);
+        },
+        (error) => {
+          console.error("Error fetching location", error);
+          alert("Could not access your location. Please ensure location services are enabled.");
+        },
+        { enableHighAccuracy: true }
+      );
+    } else {
+      alert("Geolocation is not supported by your browser.");
+    }
   }
 
   const getAddressByLatLng = async (lat, lng) => {
@@ -79,8 +92,8 @@ function CheckOut() {
         paymentMethod,
         deliveryAddress:{
           text:addressInput,
-          latitude:location.lat,
-          longitude:location.lon
+          latitude:defaultLat,
+          longitude:defaultLon
         },
         totalAmount:AmountWithDeliveryFee,
         cartItems
@@ -106,9 +119,9 @@ const openRazorpayWindow=(orderId,razorOrder)=>{
  key:import.meta.env.VITE_RAZORPAY_KEY_ID,
  amount:razorOrder.amount,
  currency:'INR',
- name:"Vingo",
+ name:"Mealo",
  description:"Food Delivery Website",
- order_id:razorOrder.id,
+ ...(razorOrder.id && !razorOrder.id.startsWith("order_mock") ? { order_id: razorOrder.id } : {}),
  handler:async function (response) {
   try {
     const result=await axios.post(`${serverUrl}/api/order/verify-payment`,{
@@ -152,7 +165,7 @@ const openRazorpayWindow=(orderId,razorOrder)=>{
             <div className='h-64 w-full flex items-center justify-center'>
               <MapContainer
                 className={"w-full h-full"}
-                center={[location?.lat, location?.lon]}
+                center={[defaultLat, defaultLon]}
                 zoom={16}
               >
                 <TileLayer
@@ -160,7 +173,7 @@ const openRazorpayWindow=(orderId,razorOrder)=>{
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
                 <RecenterMap location={location} />
-                <Marker position={[location?.lat, location?.lon]} draggable eventHandlers={{ dragend: onDragEnd }} />
+                <Marker position={[defaultLat, defaultLon]} draggable eventHandlers={{ dragend: onDragEnd }} />
 
 
               </MapContainer>

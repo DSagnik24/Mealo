@@ -1,5 +1,9 @@
 import { createSlice, current } from "@reduxjs/toolkit";
 
+const savedCart = localStorage.getItem('mealo_cart');
+const initialCart = savedCart ? JSON.parse(savedCart) : [];
+const initialAmount = initialCart.reduce((sum, i) => sum + i.price * i.quantity, 0);
+
 const userSlice = createSlice({
   name: "user",
   initialState: {
@@ -9,8 +13,8 @@ const userSlice = createSlice({
     currentAddress: null,
     shopInMyCity: null,
     itemsInMyCity: null,
-    cartItems: [],
-    totalAmount: 0,
+    cartItems: initialCart,
+    totalAmount: initialAmount,
     myOrders: [],
     searchItems: null,
     socket: null
@@ -47,7 +51,7 @@ const userSlice = createSlice({
       }
 
       state.totalAmount = state.cartItems.reduce((sum, i) => sum + i.price * i.quantity, 0)
-
+      localStorage.setItem('mealo_cart', JSON.stringify(state.cartItems));
     },
 
     setTotalAmount: (state, action) => {
@@ -63,11 +67,13 @@ const userSlice = createSlice({
         item.quantity = quantity
       }
       state.totalAmount = state.cartItems.reduce((sum, i) => sum + i.price * i.quantity, 0)
+      localStorage.setItem('mealo_cart', JSON.stringify(state.cartItems));
     },
 
     removeCartItem: (state, action) => {
       state.cartItems = state.cartItems.filter(i => i.id !== action.payload)
       state.totalAmount = state.cartItems.reduce((sum, i) => sum + i.price * i.quantity, 0)
+      localStorage.setItem('mealo_cart', JSON.stringify(state.cartItems));
     },
 
     setMyOrders: (state, action) => {

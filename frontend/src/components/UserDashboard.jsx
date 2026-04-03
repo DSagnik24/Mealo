@@ -29,6 +29,7 @@ if(category=="All"){
   setUpdatedItemsList(filteredList)
 }
 
+document.getElementById('suggested-food-items')?.scrollIntoView({ behavior: 'smooth' });
 }
 
 useEffect(()=>{
@@ -136,7 +137,7 @@ setRightButton(element.scrollLeft+element.clientWidth<element.scrollWidth)
       </div>
 
       <div className='w-full max-w-6xl flex flex-col gap-5 items-start p-[10px]'>
-       <h1 className='text-gray-800 text-2xl sm:text-3xl'>
+       <h1 id='suggested-food-items' className='text-gray-800 text-2xl sm:text-3xl scroll-mt-24'>
         Suggested Food Items
        </h1>
 
