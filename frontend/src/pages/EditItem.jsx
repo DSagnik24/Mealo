@@ -7,12 +7,12 @@ import { useState } from 'react';
 import { useRef } from 'react';
 import axios from 'axios';
 import { serverUrl } from '../App';
-import { setMyShopsData } from '../redux/ownerSlice';
+import { setMyShopData } from '../redux/ownerSlice';
 import { ClipLoader } from 'react-spinners';
 function EditItem() {
     const navigate = useNavigate()
-    const { myShopsData } = useSelector(state => state.owner)
-    const { shopId, itemId } = useParams()
+    const { myShopData } = useSelector(state => state.owner)
+  const {itemId}=useParams()
    const [currentItem,setCurrentItem]=useState(null)
     const [name, setName] = useState("")
     const [price, setPrice] = useState(0)
@@ -51,13 +51,10 @@ function EditItem() {
             if (backendImage) {
                 formData.append("image", backendImage)
             }
-            if(shopId) {
-                formData.append("shopId", shopId)
-            }
             const result = await axios.post(`${serverUrl}/api/item/edit-item/${itemId}`, formData, { withCredentials: true })
-            dispatch(setMyShopsData(result.data))
+            dispatch(setMyShopData(result.data))
             setLoading(false)
-            navigate("/my-restaurants")
+            navigate("/")
         } catch (error) {
             console.log(error)
             setLoading(false)
@@ -86,7 +83,7 @@ function EditItem() {
     },[currentItem])
     return (
         <div className='flex justify-center flex-col items-center p-6 bg-gradient-to-br from-orange-50 relative to-white min-h-screen'>
-            <div className='absolute top-[20px] left-[20px] z-[10] mb-[10px]' onClick={() => navigate("/my-restaurants")}>
+            <div className='absolute top-[20px] left-[20px] z-[10] mb-[10px]' onClick={() => navigate("/")}>
                 <IoIosArrowRoundBack size={35} className='text-[#ff4d2d]' />
             </div>
 

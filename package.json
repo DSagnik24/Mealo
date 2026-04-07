@@ -1,0 +1,24 @@
+{
+  "name": "8.vingo",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "",
+  "main": "config.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DSagnik24/Mealo.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/DSagnik24/Mealo/issues"
+  },
+  "homepage": "https://github.com/DSagnik24/Mealo#readme",
+  "dependencies": {
+    "dotenv": "^17.4.0"
+  }
+}

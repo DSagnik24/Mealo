@@ -26,6 +26,8 @@ function RecenterMap({ location }) {
 function CheckOut() {
   const { location, address } = useSelector(state => state.map)
     const { cartItems ,totalAmount,userData} = useSelector(state => state.user)
+  const defaultLat = location?.lat || 28.6139;
+  const defaultLon = location?.lon || 77.2090;
   const [addressInput, setAddressInput] = useState("")
   const [paymentMethod, setPaymentMethod] = useState("cod")
   const navigate=useNavigate()
@@ -45,12 +47,23 @@ function CheckOut() {
     getAddressByLatLng(lat, lng)
   }
   const getCurrentLocation = () => {
-      const latitude=userData.location.coordinates[1]
-      const longitude=userData.location.coordinates[0]
-      dispatch(setLocation({ lat: latitude, lon: longitude }))
-      getAddressByLatLng(latitude, longitude)
-   
-
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const latitude = position.coords.latitude;
+          const longitude = position.coords.longitude;
+          dispatch(setLocation({ lat: latitude, lon: longitude }));
+          getAddressByLatLng(latitude, longitude);
+        },
+        (error) => {
+          console.error("Error fetching location", error);
+          alert("Could not access your location. Please ensure location services are enabled.");
+        },
+        { enableHighAccuracy: true }
+      );
+    } else {
+      alert("Geolocation is not supported by your browser.");
+    }
   }
 
   const getAddressByLatLng = async (lat, lng) => {
@@ -79,8 +92,8 @@ function CheckOut() {
         paymentMethod,
         deliveryAddress:{
           text:addressInput,
-          latitude:location.lat,
-          longitude:location.lon
+          latitude:defaultLat,
+          longitude:defaultLon
         },
         totalAmount:AmountWithDeliveryFee,
         cartItems
@@ -100,53 +113,33 @@ function CheckOut() {
     }
   }
 
-const openRazorpayWindow = (orderId, razorOrder) => {
-  let paymentSucceeded = false;
+const openRazorpayWindow=(orderId,razorOrder)=>{
 
-  const options = {
-    key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-    amount: razorOrder.amount,
-    currency: 'INR',
-    name: "Mealo",
-    description: "Food Delivery Website",
-    order_id: razorOrder.id,
-    handler: async function (response) {
-      paymentSucceeded = true;
-      try {
-        const result = await axios.post(`${serverUrl}/api/order/verify-payment`, {
-          razorpay_payment_id: response.razorpay_payment_id,
-          orderId
-        }, { withCredentials: true })
+  const options={
+ key:import.meta.env.VITE_RAZORPAY_KEY_ID,
+ amount:razorOrder.amount,
+ currency:'INR',
+ name:"Mealo",
+ description:"Food Delivery Website",
+ ...(razorOrder.id && !razorOrder.id.startsWith("order_mock") ? { order_id: razorOrder.id } : {}),
+ handler:async function (response) {
+  try {
+    const result=await axios.post(`${serverUrl}/api/order/verify-payment`,{
+      razorpay_payment_id:response.razorpay_payment_id,
+      orderId
+    },{withCredentials:true})
         dispatch(addMyOrder(result.data))
-        navigate("/order-placed")
-      } catch (error) {
-        console.log(error)
-      }
-    },
-    modal: {
-      ondismiss: async function () {
-        if (!paymentSucceeded) {
-          try {
-            await axios.delete(`${serverUrl}/api/order/delete-unpaid/${orderId}`, { withCredentials: true })
-          } catch (error) {
-            console.log(error)
-          }
-        }
-      }
-    }
+      navigate("/order-placed")
+  } catch (error) {
+    console.log(error)
+  }
+ }
   }
 
-  const rzp = new window.Razorpay(options)
-  
-  rzp.on('payment.failed', async function (response) {
-    try {
-      await axios.delete(`${serverUrl}/api/order/delete-unpaid/${orderId}`, { withCredentials: true })
-    } catch (error) {
-      console.log(error)
-    }
-  })
-
+  const rzp=new window.Razorpay(options)
   rzp.open()
+
+
 }
 
 
@@ -172,7 +165,7 @@ const openRazorpayWindow = (orderId, razorOrder) => {
             <div className='h-64 w-full flex items-center justify-center'>
               <MapContainer
                 className={"w-full h-full"}
-                center={[location?.lat, location?.lon]}
+                center={[defaultLat, defaultLon]}
                 zoom={16}
               >
                 <TileLayer
@@ -180,7 +173,7 @@ const openRazorpayWindow = (orderId, razorOrder) => {
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
                 <RecenterMap location={location} />
-                <Marker position={[location?.lat, location?.lon]} draggable eventHandlers={{ dragend: onDragEnd }} />
+                <Marker position={[defaultLat, defaultLon]} draggable eventHandlers={{ dragend: onDragEnd }} />
 
 
               </MapContainer>
