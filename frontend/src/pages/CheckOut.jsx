@@ -100,33 +100,53 @@ function CheckOut() {
     }
   }
 
-const openRazorpayWindow=(orderId,razorOrder)=>{
+const openRazorpayWindow = (orderId, razorOrder) => {
+  let paymentSucceeded = false;
 
-  const options={
- key:import.meta.env.VITE_RAZORPAY_KEY_ID,
- amount:razorOrder.amount,
- currency:'INR',
- name:"Vingo",
- description:"Food Delivery Website",
- order_id:razorOrder.id,
- handler:async function (response) {
-  try {
-    const result=await axios.post(`${serverUrl}/api/order/verify-payment`,{
-      razorpay_payment_id:response.razorpay_payment_id,
-      orderId
-    },{withCredentials:true})
+  const options = {
+    key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+    amount: razorOrder.amount,
+    currency: 'INR',
+    name: "Mealo",
+    description: "Food Delivery Website",
+    order_id: razorOrder.id,
+    handler: async function (response) {
+      paymentSucceeded = true;
+      try {
+        const result = await axios.post(`${serverUrl}/api/order/verify-payment`, {
+          razorpay_payment_id: response.razorpay_payment_id,
+          orderId
+        }, { withCredentials: true })
         dispatch(addMyOrder(result.data))
-      navigate("/order-placed")
-  } catch (error) {
-    console.log(error)
-  }
- }
+        navigate("/order-placed")
+      } catch (error) {
+        console.log(error)
+      }
+    },
+    modal: {
+      ondismiss: async function () {
+        if (!paymentSucceeded) {
+          try {
+            await axios.delete(`${serverUrl}/api/order/delete-unpaid/${orderId}`, { withCredentials: true })
+          } catch (error) {
+            console.log(error)
+          }
+        }
+      }
+    }
   }
 
-  const rzp=new window.Razorpay(options)
+  const rzp = new window.Razorpay(options)
+  
+  rzp.on('payment.failed', async function (response) {
+    try {
+      await axios.delete(`${serverUrl}/api/order/delete-unpaid/${orderId}`, { withCredentials: true })
+    } catch (error) {
+      console.log(error)
+    }
+  })
+
   rzp.open()
-
-
 }
 
 

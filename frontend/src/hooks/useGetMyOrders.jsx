@@ -3,7 +3,7 @@ import React, { useEffect } from 'react'
 import { serverUrl } from '../App'
 import { useDispatch, useSelector } from 'react-redux'
 import { setMyOrders, setUserData } from '../redux/userSlice'
-import { setMyShopData } from '../redux/ownerSlice'
+import { setMyShopsData } from '../redux/ownerSlice'
 
 function useGetMyOrders() {
     const dispatch=useDispatch()

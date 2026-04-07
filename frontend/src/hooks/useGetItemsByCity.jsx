@@ -6,20 +6,26 @@ import { setItemsInMyCity, setShopsInMyCity, setUserData } from '../redux/userSl
 
 function useGetItemsByCity() {
     const dispatch=useDispatch()
-    const {currentCity}=useSelector(state=>state.user)
+    const {currentCity, customLocation}=useSelector(state=>state.user)
   useEffect(()=>{
   const fetchItems=async () => {
     try {
-           const result=await axios.get(`${serverUrl}/api/item/get-by-city/${currentCity}`,{withCredentials:true})
+        if (customLocation?.lat && customLocation?.lon) {
+            const result = await axios.get(`${serverUrl}/api/item/get-nearby?lat=${customLocation.lat}&lon=${customLocation.lon}`, {withCredentials:true})
             dispatch(setItemsInMyCity(result.data))
-           console.log(result.data)
+            return
+        }
+        if (currentCity) {
+            const result=await axios.get(`${serverUrl}/api/item/get-by-city/${currentCity}`,{withCredentials:true})
+            dispatch(setItemsInMyCity(result.data))
+        }
     } catch (error) {
         console.log(error)
     }
 }
 fetchItems()
  
-  },[currentCity])
+  },[currentCity, customLocation?.lat, customLocation?.lon])
 }
 
 export default useGetItemsByCity

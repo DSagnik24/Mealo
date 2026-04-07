@@ -1,18 +1,20 @@
 import React from 'react'
 import { IoIosArrowRoundBack } from "react-icons/io";
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { FaUtensils } from "react-icons/fa";
 import { useState } from 'react';
 import { useRef } from 'react';
 import axios from 'axios';
 import { serverUrl } from '../App';
-import { setMyShopData } from '../redux/ownerSlice';
+import { setMyShopsData } from '../redux/ownerSlice';
 import { ClipLoader } from 'react-spinners';
 function AddItem() {
     const navigate = useNavigate()
-    const { myShopData } = useSelector(state => state.owner)
+    const { shopId } = useParams()
+    const { myShopsData } = useSelector(state => state.owner)
     const [loading,setLoading]=useState(false)
+    const [err,setErr]=useState("")
     const [name, setName] = useState("")
     const [price, setPrice] = useState(0)
     const [frontendImage, setFrontendImage] = useState(null)
@@ -49,18 +51,23 @@ function AddItem() {
             if (backendImage) {
                 formData.append("image", backendImage)
             }
+            if(shopId) {
+                formData.append("shopId", shopId)
+            }
             const result = await axios.post(`${serverUrl}/api/item/add-item`, formData, { withCredentials: true })
-            dispatch(setMyShopData(result.data))
+            dispatch(setMyShopsData(result.data))
            setLoading(false)
-           navigate("/")
+           setErr("")
+           navigate("/my-restaurants")
         } catch (error) {
             console.log(error)
+            setErr(error?.response?.data?.message || "Something went wrong")
             setLoading(false)
         }
     }
     return (
         <div className='flex justify-center flex-col items-center p-6 bg-gradient-to-br from-orange-50 relative to-white min-h-screen'>
-            <div className='absolute top-[20px] left-[20px] z-[10] mb-[10px]' onClick={() => navigate("/")}>
+            <div className='absolute top-[20px] left-[20px] z-[10] mb-[10px]' onClick={() => navigate("/my-restaurants")}>
                 <IoIosArrowRoundBack size={35} className='text-[#ff4d2d]' />
             </div>
 
@@ -129,6 +136,7 @@ function AddItem() {
                     <button className='w-full bg-[#ff4d2d] text-white px-6 py-3 rounded-lg font-semibold shadow-md hover:bg-orange-600 hover:shadow-lg transition-all duration-200 cursor-pointer' disabled={loading}>
                       {loading?<ClipLoader size={20} color='white' />:"Save"}
                     </button>
+                    {err && <p className='text-red-500 text-center text-sm font-medium mt-2'>*{err}</p>}
                 </form>
             </div>
 

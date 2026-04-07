@@ -8,11 +8,12 @@ import { FaPlus } from "react-icons/fa";
 import { FaShoppingCart } from "react-icons/fa";
 import { useDispatch, useSelector } from 'react-redux';
 import { addToCart } from '../redux/userSlice';
+import toast from 'react-hot-toast';
 
-function FoodCard({data}) {
+function FoodCard({data, disabled}) {
 const [quantity,setQuantity]=useState(0)
 const dispatch=useDispatch()
-const {cartItems}=useSelector(state=>state.user)
+const {cartItems, userData}=useSelector(state=>state.user)
     const renderStars=(rating)=>{   //r=3
         const stars=[];
         for (let i = 1; i <= 5; i++) {
@@ -73,8 +74,20 @@ const newQty=quantity-1
 <button className='px-2 py-1 hover:bg-gray-100 transition' onClick={handleIncrease}>
 <FaPlus size={12}/>
 </button>
-<button className={`${cartItems.some(i=>i.id==data._id)?"bg-gray-800":"bg-[#ff4d2d]"} text-white px-3 py-2 transition-colors`}  onClick={()=>{
-    quantity>0?dispatch(addToCart({
+<button className={`${cartItems.some(i=>i.id==data._id)?"bg-gray-800":"bg-[#ff4d2d]"} text-white px-3 py-2 transition-colors ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}  onClick={()=>{
+    if(disabled) {
+        toast.error("This restaurant is too far away (>50km)")
+        return
+    }
+    if(!userData) {
+        toast.error("Please login to add items to cart")
+        return
+    }
+    if(quantity<=0) return
+    if(cartItems.length > 0 && cartItems[0].shop !== data.shop) {
+        toast("Switched restaurant! Previous cart cleared.", { icon: "🔄" })
+    }
+    dispatch(addToCart({
           id:data._id,
           name:data.name,
           price:data.price,
@@ -82,7 +95,10 @@ const newQty=quantity-1
           shop:data.shop,
           quantity,
           foodType:data.foodType
-})):null}}>
+    }))
+    toast.success("Added to cart!")
+    setQuantity(0)
+}}>
 <FaShoppingCart size={16}/>
 </button>
 </div>

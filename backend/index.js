@@ -19,7 +19,7 @@ const server=http.createServer(app)
 
 const io=new Server(server,{
    cors:{
-    origin:"http://localhost:5173",
+    origin:["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"],
     credentials:true,
     methods:['POST','GET']
 }
@@ -29,9 +29,9 @@ app.set("io",io)
 
 
 
-const port=process.env.PORT || 5000
+const port=process.env.PORT || 8000
 app.use(cors({
-    origin:"http://localhost:5173",
+    origin:["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"],
     credentials:true
 }))
 app.use(express.json())
@@ -43,8 +43,17 @@ app.use("/api/item",itemRouter)
 app.use("/api/order",orderRouter)
 
 socketHandler(io)
-server.listen(port,()=>{
-    connectDb()
-    console.log(`server started at ${port}`)
-})
+
+const startServer = async () => {
+    try {
+        await connectDb()
+        server.listen(port,()=>{
+            console.log(`server started at ${port}`)
+        })
+    } catch (error) {
+        process.exit(1)
+    }
+}
+
+startServer()
 

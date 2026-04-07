@@ -4,27 +4,38 @@ import uploadOnCloudinary from "../utils/cloudinary.js";
 
 export const addItem = async (req, res) => {
     try {
-        const { name, category, foodType, price } = req.body
+        const { name, category, foodType, price, shopId } = req.body
         let image;
         if (req.file) {
             image = await uploadOnCloudinary(req.file.path)
+            if (!image) {
+                return res.status(500).json({ message: "Cloudinary upload failed." })
+            }
         }
-        const shop = await Shop.findOne({ owner: req.userId })
+        
+        if (!shopId) return res.status(400).json({ message: "shopId is required" })
+        
+        const shop = await Shop.findOne({ _id: shopId, owner: req.userId })
         if (!shop) {
             return res.status(400).json({ message: "shop not found" })
         }
+        
+        if (!image) {
+            return res.status(400).json({ message: "Food image is required." })
+        }
+        
         const item = await Item.create({
             name, category, foodType, price, image, shop: shop._id
         })
 
         shop.items.push(item._id)
         await shop.save()
-        await shop.populate("owner")
-        await shop.populate({
-            path: "items",
-            options: { sort: { updatedAt: -1 } }
+        
+        const allShops = await Shop.find({owner: req.userId}).populate("owner").populate({
+            path:"items",
+            options:{sort:{updatedAt:-1}}
         })
-        return res.status(201).json(shop)
+        return res.status(201).json(allShops)
 
     } catch (error) {
         return res.status(500).json({ message: `add item error ${error}` })
@@ -34,22 +45,31 @@ export const addItem = async (req, res) => {
 export const editItem = async (req, res) => {
     try {
         const itemId = req.params.itemId
-        const { name, category, foodType, price } = req.body
+        const { name, category, foodType, price, shopId } = req.body
         let image;
         if (req.file) {
             image = await uploadOnCloudinary(req.file.path)
         }
+        
+        if (!shopId) return res.status(400).json({ message: "shopId is required" })
+        const shop = await Shop.findOne({ _id: shopId, owner: req.userId }).populate({
+            path: "items",
+            options: { sort: { updatedAt: -1 } }
+        })
+        if (!shop) return res.status(400).json({ message: "Shop not found" })
+
         const item = await Item.findByIdAndUpdate(itemId, {
             name, category, foodType, price, image
         }, { new: true })
         if (!item) {
             return res.status(400).json({ message: "item not found" })
         }
-        const shop = await Shop.findOne({ owner: req.userId }).populate({
-            path: "items",
-            options: { sort: { updatedAt: -1 } }
+        
+        const allShops = await Shop.find({owner: req.userId}).populate("owner").populate({
+            path:"items",
+            options:{sort:{updatedAt:-1}}
         })
-        return res.status(200).json(shop)
+        return res.status(200).json(allShops)
 
     } catch (error) {
         return res.status(500).json({ message: `edit item error ${error}` })
@@ -76,14 +96,17 @@ export const deleteItem = async (req, res) => {
         if (!item) {
             return res.status(400).json({ message: "item not found" })
         }
-        const shop = await Shop.findOne({ owner: req.userId })
-        shop.items = shop.items.filter(i => i !== item._id)
-        await shop.save()
-        await shop.populate({
-            path: "items",
-            options: { sort: { updatedAt: -1 } }
+        const shop = await Shop.findOne({ _id: item.shop, owner: req.userId })
+        if (shop) {
+            shop.items = shop.items.filter(i => String(i) !== String(item._id))
+            await shop.save()
+        }
+        
+        const allShops = await Shop.find({owner: req.userId}).populate("owner").populate({
+            path:"items",
+            options:{sort:{updatedAt:-1}}
         })
-        return res.status(200).json(shop)
+        return res.status(200).json(allShops)
 
     } catch (error) {
         return res.status(500).json({ message: `delete item error ${error}` })
@@ -109,6 +132,30 @@ export const getItemByCity = async (req, res) => {
 
     } catch (error) {
  return res.status(500).json({ message: `get item by city error ${error}` })
+    }
+}
+
+export const getNearbyItems = async (req, res) => {
+    try {
+        const { lat, lon } = req.query
+        if (!lat || !lon) {
+            return res.status(400).json({ message: "lat and lon query params are required" })
+        }
+        const maxDistanceMeters = 200 * 1000
+
+        const nearbyShops = await Shop.find({
+            location: {
+                $near: {
+                    $geometry: { type: "Point", coordinates: [Number(lon), Number(lat)] },
+                    $maxDistance: maxDistanceMeters
+                }
+            }
+        })
+        const shopIds = nearbyShops.map(s => s._id)
+        const items = await Item.find({ shop: { $in: shopIds } }).populate("shop", "name image")
+        return res.status(200).json(items)
+    } catch (error) {
+        return res.status(500).json({ message: `get nearby items error ${error}` })
     }
 }
 

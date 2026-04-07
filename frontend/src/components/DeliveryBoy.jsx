@@ -1,5 +1,5 @@
 import React from 'react'
-import Nav from './NaV.JSX'
+import Nav from './Nav'
 import { useSelector } from 'react-redux'
 import axios from 'axios'
 import { serverUrl } from '../App'
@@ -7,6 +7,8 @@ import { useEffect } from 'react'
 import { useState } from 'react'
 import DeliveryBoyTracking from './DeliveryBoyTracking'
 import { ClipLoader } from 'react-spinners'
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import toast from 'react-hot-toast'
 
 function DeliveryBoy() {
   const {userData,socket}=useSelector(state=>state.user)
@@ -14,9 +16,11 @@ function DeliveryBoy() {
   const [showOtpBox,setShowOtpBox]=useState(false)
   const [availableAssignments,setAvailableAssignments]=useState(null)
   const [otp,setOtp]=useState("")
+  const [todayDeliveries,setTodayDeliveries]=useState([])
 const [deliveryBoyLocation,setDeliveryBoyLocation]=useState(null)
 const [loading,setLoading]=useState(false)
 const [message,setMessage]=useState("")
+const [pastDeliveries,setPastDeliveries]=useState([])
   useEffect(()=>{
 if(!socket || userData.role!=="deliveryBoy") return
 let watchId
@@ -28,7 +32,8 @@ watchId=navigator.geolocation.watchPosition((position)=>{
     socket.emit('updateLocation',{
       latitude,
       longitude,
-      userId:userData._id
+      userId:userData._id,
+      orderId: currentOrder?._id
     })
   }),
   (error)=>{
@@ -43,8 +48,11 @@ return ()=>{
   if(watchId)navigator.geolocation.clearWatch(watchId)
 }
 
-  },[socket,userData])
+  },[socket,userData,currentOrder])
 
+
+const ratePerDelivery=50
+const totalEarning=todayDeliveries.reduce((sum,d)=>sum + d.count*ratePerDelivery,0)
 
 
 
@@ -72,8 +80,10 @@ return ()=>{
     try {
       const result=await axios.get(`${serverUrl}/api/order/accept-order/${assignmentId}`,{withCredentials:true})
     console.log(result.data)
+    toast.success("Order Accepted!")
     await getCurrentOrder()
     } catch (error) {
+      toast.error("Failed to accept order")
       console.log(error)
     }
   }
@@ -82,12 +92,16 @@ return ()=>{
     socket.on('newAssignment',(data)=>{
       setAvailableAssignments(prev=>([...prev,data]))
     })
+    socket.on('update-status', () => {
+      getCurrentOrder()
+    })
     return ()=>{
       socket.off('newAssignment')
+      socket.off('update-status')
     }
   },[socket])
   
-  const sendOtp=async () => {
+    const sendOtp=async () => {
     setLoading(true)
     try {
       const result=await axios.post(`${serverUrl}/api/order/send-delivery-otp`,{
@@ -95,8 +109,10 @@ return ()=>{
       },{withCredentials:true})
       setLoading(false)
        setShowOtpBox(true)
+       toast.success("OTP Prompts Sent!")
     console.log(result.data)
     } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to send OTP")
       console.log(error)
       setLoading(false)
     }
@@ -109,18 +125,40 @@ return ()=>{
       },{withCredentials:true})
     console.log(result.data)
     setMessage(result.data.message)
+    toast.success("Delivery marked correctly!")
+    location.reload()
     } catch (error) {
+      toast.error(error?.response?.data?.message || "Invalid OTP entered")
       console.log(error)
     }
   }
 
 
-
+   const handleTodayDeliveries=async () => {
+    
+    try {
+      const result=await axios.get(`${serverUrl}/api/order/get-today-deliveries`,{withCredentials:true})
+    console.log(result.data)
+   setTodayDeliveries(result.data)
+    } catch (error) {
+      console.log(error)
+    }
+  }
  
+   const getPastDeliveries = async () => {
+    try {
+      const result = await axios.get(`${serverUrl}/api/order/get-completed-deliveries`, { withCredentials: true })
+      setPastDeliveries(result.data)
+    } catch (error) {
+      console.log(error)
+    }
+  }
 
   useEffect(()=>{
 getAssignments()
 getCurrentOrder()
+handleTodayDeliveries()
+getPastDeliveries()
   },[userData])
   return (
     <div className='w-screen min-h-screen flex flex-col gap-5 items-center bg-[#fff9f6] overflow-y-auto'>
@@ -130,6 +168,27 @@ getCurrentOrder()
 <h1 className='text-xl font-bold text-[#ff4d2d]'>Welcome, {userData.fullName}</h1>
 <p className='text-[#ff4d2d] '><span className='font-semibold'>Latitude:</span> {deliveryBoyLocation?.lat}, <span className='font-semibold'>Longitude:</span> {deliveryBoyLocation?.lon}</p>
     </div>
+
+<div className='bg-white rounded-2xl shadow-md p-5 w-[90%] mb-6 border border-orange-100'>
+  <h1 className='text-lg font-bold mb-3 text-[#ff4d2d] '>Today Deliveries</h1>
+
+  <ResponsiveContainer width="100%" height={200}>
+   <BarChart data={todayDeliveries}>
+  <CartesianGrid strokeDasharray="3 3"/>
+  <XAxis dataKey="hour" tickFormatter={(h)=>`${h}:00`}/>
+    <YAxis  allowDecimals={false}/>
+    <Tooltip formatter={(value)=>[value,"orders"]} labelFormatter={label=>`${label}:00`}/>
+      <Bar dataKey="count" fill='#ff4d2d'/>
+   </BarChart>
+  </ResponsiveContainer>
+
+  <div className='max-w-sm mx-auto mt-6 p-6 bg-white rounded-2xl shadow-lg text-center'>
+<h1 className='text-xl font-semibold text-gray-800 mb-2'>Today's Earning</h1>
+<span className='text-3xl font-bold text-green-600'>₹{totalEarning}</span>
+  </div>
+</div>
+
+
 {!currentOrder && <div className='bg-white rounded-2xl p-5 shadow-md w-[90%] border border-orange-100'>
 <h1 className='text-lg font-bold mb-4 flex items-center gap-2'>Available Orders</h1>
 
@@ -158,8 +217,11 @@ availableAssignments.map((a,index)=>(
   <p className='font-semibold text-sm'>{currentOrder?.shopOrder.shop.name}</p>
   <p className='text-sm text-gray-500'>{currentOrder.deliveryAddress.text}</p>
  <p className='text-xs text-gray-400'>{currentOrder.shopOrder.shopOrderItems.length} items | {currentOrder.shopOrder.subtotal}</p>
+ <p className='mt-2 text-sm font-semibold'>Status: <span className='capitalize text-[#ff4d2d]'>{currentOrder.shopOrder.status}</span></p>
 </div>
 
+{currentOrder.shopOrder.status === "out of delivery" ? (
+<>
  <DeliveryBoyTracking data={{ 
   deliveryBoyLocation:deliveryBoyLocation || {
         lat: userData.location.coordinates[1],
@@ -178,9 +240,35 @@ availableAssignments.map((a,index)=>(
 
 <button className="w-full bg-orange-500 text-white py-2 rounded-lg font-semibold hover:bg-orange-600 transition-all" onClick={verifyOtp}>Submit OTP</button>
   </div>}
+</>
+) : (
+  <div className='mt-3 p-4 bg-yellow-50 border border-yellow-200 rounded-xl text-center'>
+    <p className='text-sm text-yellow-700 font-semibold'>⏳ Waiting for owner to mark as "Out of Delivery"</p>
+  </div>
+)}
 
   </div>}
 
+{(!currentOrder && pastDeliveries?.length > 0) && (
+  <div className='bg-white rounded-2xl p-5 shadow-md w-[90%] border border-green-100 mt-6'>
+    <h1 className='text-lg font-bold mb-4 flex items-center gap-2 text-green-600'>Completed Deliveries</h1>
+    <div className='space-y-4'>
+      {pastDeliveries.map((pd, index) => (
+        <div className='border rounded-lg p-4 flex justify-between items-center bg-gray-50' key={index}>
+           <div>
+            <p className='text-sm font-semibold'>{pd?.shopName}</p>
+            <p className='text-sm text-gray-500'><span className='font-semibold'>Delivery Address:</span> {pd?.deliveryAddress.text}</p>
+            <p className='text-xs text-gray-400 mt-1'>{new Date(pd.deliveredAt).toLocaleString('en-GB')}</p>
+           </div>
+           <div className='text-right'>
+           <p className='text-sm font-bold text-green-600'>+₹{pd.payout}</p>
+           <p className='text-xs text-gray-400'>{pd.itemsCount} items</p>
+           </div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
 
       </div>
     </div>

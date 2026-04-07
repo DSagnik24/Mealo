@@ -47,6 +47,10 @@ otpExpires:{
 deliveredAt:{
     type:Date,
     default:null
+},
+billImage:{
+    type:String,
+    default:null
 }
 
 }, { timestamps: true })

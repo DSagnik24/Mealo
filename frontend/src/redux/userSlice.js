@@ -7,6 +7,7 @@ const userSlice = createSlice({
     currentCity: null,
     currentState: null,
     currentAddress: null,
+    customLocation: null,
     shopInMyCity: null,
     itemsInMyCity: null,
     cartItems: [],
@@ -28,6 +29,9 @@ const userSlice = createSlice({
     setCurrentAddress: (state, action) => {
       state.currentAddress = action.payload
     },
+    setCustomLocation: (state, action) => {
+      state.customLocation = action.payload
+    },
     setShopsInMyCity: (state, action) => {
       state.shopInMyCity = action.payload
     },
@@ -39,6 +43,16 @@ const userSlice = createSlice({
     },
     addToCart: (state, action) => {
       const cartItem = action.payload
+      // Enforce single-restaurant cart
+      if (state.cartItems.length > 0) {
+        const currentShopId = typeof state.cartItems[0].shop === 'object' ? String(state.cartItems[0].shop._id || state.cartItems[0].shop) : String(state.cartItems[0].shop)
+        const newShopId = typeof cartItem.shop === 'object' ? String(cartItem.shop._id || cartItem.shop) : String(cartItem.shop)
+        
+        if (currentShopId !== newShopId) {
+          // Clear cart and start fresh with the new restaurant
+          state.cartItems = []
+        }
+      }
       const existingItem = state.cartItems.find(i => i.id == cartItem.id)
       if (existingItem) {
         existingItem.quantity += cartItem.quantity
@@ -82,8 +96,17 @@ const userSlice = createSlice({
       const { orderId, shopId, status } = action.payload
       const order = state.myOrders.find(o => o._id == orderId)
       if (order) {
-        if (order.shopOrders && order.shopOrders.shop._id == shopId) {
-          order.shopOrders.status = status
+        if (Array.isArray(order.shopOrders)) {
+          const shopOrder = order.shopOrders.find(so => {
+            const soShopId = so.shop?._id || so.shop
+            return String(soShopId) == String(shopId)
+          })
+          if (shopOrder) shopOrder.status = status
+        } else if (order.shopOrders) {
+          const soShopId = order.shopOrders.shop?._id || order.shopOrders.shop
+          if (String(soShopId) == String(shopId)) {
+            order.shopOrders.status = status
+          }
         }
       }
     },
@@ -92,9 +115,17 @@ const userSlice = createSlice({
       const { orderId, shopId, status } = action.payload
       const order = state.myOrders.find(o => o._id == orderId)
       if (order) {
-        const shopOrder = order.shopOrders.find(so => so.shop._id == shopId)
-        if (shopOrder) {
-          shopOrder.status = status
+        if (Array.isArray(order.shopOrders)) {
+          const shopOrder = order.shopOrders.find(so => {
+            const soShopId = so.shop?._id || so.shop
+            return String(soShopId) == String(shopId)
+          })
+          if (shopOrder) shopOrder.status = status
+        } else if (order.shopOrders) {
+          const soShopId = order.shopOrders.shop?._id || order.shopOrders.shop
+          if (String(soShopId) == String(shopId)) {
+            order.shopOrders.status = status
+          }
         }
       }
     },
@@ -105,5 +136,5 @@ const userSlice = createSlice({
   }
 })
 
-export const { setUserData, setCurrentAddress, setCurrentCity, setCurrentState, setShopsInMyCity, setItemsInMyCity, addToCart, updateQuantity, removeCartItem, setMyOrders, addMyOrder, updateOrderStatus, setSearchItems, setTotalAmount, setSocket ,updateRealtimeOrderStatus} = userSlice.actions
+export const { setUserData, setCurrentAddress, setCurrentCity, setCurrentState, setCustomLocation, setShopsInMyCity, setItemsInMyCity, addToCart, updateQuantity, removeCartItem, setMyOrders, addMyOrder, updateOrderStatus, setSearchItems, setTotalAmount, setSocket ,updateRealtimeOrderStatus} = userSlice.actions
 export default userSlice.reducer

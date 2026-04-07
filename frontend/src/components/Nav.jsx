@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef, useCallback } from 'react'
 import { FaLocationDot } from "react-icons/fa6";
 import { IoIosSearch } from "react-icons/io";
 import { FiShoppingCart } from "react-icons/fi";
@@ -6,18 +6,75 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RxCross2 } from "react-icons/rx";
 import axios from 'axios';
 import { serverUrl } from '../App';
-import { setSearchItems, setUserData } from '../redux/userSlice';
-import { FaPlus } from "react-icons/fa6";
+import { setSearchItems, setUserData, setCurrentCity, setCustomLocation } from '../redux/userSlice';
+import { FaPlus, FaUtensils } from "react-icons/fa6";
 import { TbReceipt2 } from "react-icons/tb";
 import { useNavigate } from 'react-router-dom';
 function Nav() {
     const { userData, currentCity ,cartItems} = useSelector(state => state.user)
-        const { myShopData} = useSelector(state => state.owner)
+    const { myShopsData } = useSelector(state => state.owner)
     const [showInfo, setShowInfo] = useState(false)
     const [showSearch, setShowSearch] = useState(false)
     const [query,setQuery]=useState("")
     const dispatch = useDispatch()
     const navigate=useNavigate()
+
+    // Location search
+    const [locationQuery, setLocationQuery] = useState("")
+    const [suggestions, setSuggestions] = useState([])
+    const [showLocationSuggestions, setShowLocationSuggestions] = useState(false)
+    const debounceTimer = useRef(null)
+    const suggestionsRef = useRef(null)
+
+    useEffect(() => {
+        setLocationQuery(currentCity || "")
+    }, [currentCity])
+
+    const fetchSuggestions = useCallback(async (q) => {
+        if (q.length < 3) {
+            setSuggestions([])
+            return
+        }
+        try {
+            const res = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=5&addressdetails=1`)
+            setSuggestions(res.data)
+        } catch (e) {
+            console.log("Nominatim error:", e)
+        }
+    }, [])
+
+    const handleLocationInput = (e) => {
+        const val = e.target.value
+        setLocationQuery(val)
+        if (debounceTimer.current) clearTimeout(debounceTimer.current)
+        debounceTimer.current = setTimeout(() => {
+            fetchSuggestions(val)
+            setShowLocationSuggestions(true)
+        }, 500)
+    }
+
+    const handleSelectLocation = (suggestion) => {
+        const addr = suggestion.address || {}
+        const newCity = addr.city || addr.town || addr.village || addr.county || suggestion.display_name.split(',')[0]
+        setLocationQuery(newCity)
+        dispatch(setCurrentCity(newCity))
+        dispatch(setCustomLocation({
+            lat: parseFloat(suggestion.lat),
+            lon: parseFloat(suggestion.lon)
+        }))
+        setSuggestions([])
+        setShowLocationSuggestions(false)
+    }
+
+    useEffect(() => {
+        const handler = (e) => {
+            if (suggestionsRef.current && !suggestionsRef.current.contains(e.target)) {
+                setShowLocationSuggestions(false)
+            }
+        }
+        document.addEventListener("mousedown", handler)
+        return () => document.removeEventListener("mousedown", handler)
+    }, [])
     const handleLogOut = async () => {
         try {
             const result = await axios.get(`${serverUrl}/api/auth/signout`, { withCredentials: true })
@@ -48,9 +105,18 @@ handleSearchItems()
         <div className='w-full h-[80px] flex items-center justify-between md:justify-center gap-[30px] px-[20px] fixed top-0 z-[9999] bg-[#fff9f6] overflow-visible'>
 
             {showSearch && userData.role == "user" && <div className='w-[90%] h-[70px]  bg-white shadow-xl rounded-lg items-center gap-[20px] flex fixed top-[80px] left-[5%] md:hidden'>
-                <div className='flex items-center w-[30%] overflow-hidden gap-[10px] px-[10px] border-r-[2px] border-gray-400'>
+                <div className='flex items-center w-[30%] overflow-visible gap-[10px] px-[10px] border-r-[2px] border-gray-400 relative' ref={suggestionsRef}>
                     <FaLocationDot size={25} className=" text-[#ff4d2d]" />
-                    <div className='w-[80%] truncate text-gray-600'>{currentCity}</div>
+                    <input type="text" className='w-full outline-none text-gray-600 bg-transparent text-sm' value={locationQuery} onChange={handleLocationInput} onFocus={() => suggestions.length > 0 && setShowLocationSuggestions(true)} placeholder="Change location..." />
+                    {showLocationSuggestions && suggestions.length > 0 && (
+                        <div className='absolute top-[50px] left-0 w-[250px] bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-y-auto z-[99999]'>
+                            {suggestions.map((s, idx) => (
+                                <div key={idx} className='px-4 py-3 hover:bg-orange-50 cursor-pointer text-sm border-b border-gray-100 last:border-b-0' onClick={() => handleSelectLocation(s)}>
+                                    <p className='font-medium text-gray-800 truncate'>{s.display_name}</p>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
                 <div className='w-[80%] flex items-center gap-[10px]'>
                     <IoIosSearch size={25} className='text-[#ff4d2d]' />
@@ -60,11 +126,20 @@ handleSearchItems()
 
 
 
-            <h1 className='text-3xl font-bold mb-2 text-[#ff4d2d]'>Vingo</h1>
+            <h1 className='text-3xl font-bold mb-2 text-[#ff4d2d]'>Mealo</h1>
             {userData.role == "user" && <div className='md:w-[60%] lg:w-[40%] h-[70px] bg-white shadow-xl rounded-lg items-center gap-[20px] hidden md:flex'>
-                <div className='flex items-center w-[30%] overflow-hidden gap-[10px] px-[10px] border-r-[2px] border-gray-400'>
+                <div className='flex items-center w-[30%] overflow-visible gap-[10px] px-[10px] border-r-[2px] border-gray-400 relative' ref={suggestionsRef}>
                     <FaLocationDot size={25} className=" text-[#ff4d2d]" />
-                    <div className='w-[80%] truncate text-gray-600'>{currentCity}</div>
+                    <input type="text" className='w-full outline-none text-gray-600 bg-transparent text-sm' value={locationQuery} onChange={handleLocationInput} onFocus={() => suggestions.length > 0 && setShowLocationSuggestions(true)} placeholder="Change location..." />
+                    {showLocationSuggestions && suggestions.length > 0 && (
+                        <div className='absolute top-[50px] left-0 w-[250px] bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-y-auto z-[99999]'>
+                            {suggestions.map((s, idx) => (
+                                <div key={idx} className='px-4 py-3 hover:bg-orange-50 cursor-pointer text-sm border-b border-gray-100 last:border-b-0' onClick={() => handleSelectLocation(s)}>
+                                    <p className='font-medium text-gray-800 truncate'>{s.display_name}</p>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
                 <div className='w-[80%] flex items-center gap-[10px]'>
                     <IoIosSearch size={25} className='text-[#ff4d2d]' />
@@ -76,22 +151,22 @@ handleSearchItems()
                 {userData.role == "user" && (showSearch ? <RxCross2 size={25} className='text-[#ff4d2d] md:hidden' onClick={() => setShowSearch(false)} /> : <IoIosSearch size={25} className='text-[#ff4d2d] md:hidden' onClick={() => setShowSearch(true)} />)
                 }
                 {userData.role == "owner"? <>
-                 {myShopData && <> <button className='hidden md:flex items-center gap-1 p-2 cursor-pointer rounded-full bg-[#ff4d2d]/10 text-[#ff4d2d]' onClick={()=>navigate("/add-item")}>
-                        <FaPlus size={20} />
-                        <span>Add Food Item</span>
-                    </button>
-                      <button className='md:hidden flex items-center  p-2 cursor-pointer rounded-full bg-[#ff4d2d]/10 text-[#ff4d2d]' onClick={()=>navigate("/add-item")}>
-                        <FaPlus size={20} />
-                    </button></>}
+                 <button className='hidden md:flex items-center gap-1 p-2 cursor-pointer rounded-full bg-[#ff4d2d]/10 text-[#ff4d2d]' onClick={()=>navigate("/my-restaurants")}>
+                        <FaUtensils size={20} />
+                        <span>Restaurants</span>
+                 </button>
+                 <button className='md:hidden flex items-center p-2 cursor-pointer rounded-full bg-[#ff4d2d]/10 text-[#ff4d2d]' onClick={()=>navigate("/my-restaurants")}>
+                        <FaUtensils size={20} />
+                 </button>
                    
                     <div className='hidden md:flex items-center gap-2 cursor-pointer relative px-3 py-1 rounded-lg bg-[#ff4d2d]/10 text-[#ff4d2d] font-medium' onClick={()=>navigate("/my-orders")}>
                       <TbReceipt2 size={20}/>
                       <span>My Orders</span>
-                      <span className='absolute -right-2 -top-2 text-xs font-bold text-white bg-[#ff4d2d] rounded-full px-[6px] py-[1px]'>0</span>
+                      
                     </div>
                      <div className='md:hidden flex items-center gap-2 cursor-pointer relative px-3 py-1 rounded-lg bg-[#ff4d2d]/10 text-[#ff4d2d] font-medium' onClick={()=>navigate("/my-orders")}>
                       <TbReceipt2 size={20}/>
-                      <span className='absolute -right-2 -top-2 text-xs font-bold text-white bg-[#ff4d2d] rounded-full px-[6px] py-[1px]'>0</span>
+                      
                     </div>
                 </>: (
                     <>

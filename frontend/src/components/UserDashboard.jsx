@@ -9,6 +9,7 @@ import FoodCard from './FoodCard';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { serverUrl } from '../App';
+import toast from 'react-hot-toast';
 
 function UserDashboard() {
   const {currentCity,shopInMyCity,itemsInMyCity,searchItems}=useSelector(state=>state.user)
@@ -117,16 +118,32 @@ setRightButton(element.scrollLeft+element.clientWidth<element.scrollWidth)
       </div>
 
       <div className='w-full max-w-6xl flex flex-col gap-5 items-start p-[10px]'>
- <h1 className='text-gray-800 text-2xl sm:text-3xl'>Best Shop in {currentCity}</h1>
+ <h1 className='text-gray-800 text-2xl sm:text-3xl'>Restaurants near you</h1>
  <div className='w-full relative'>
           {showLeftShopButton &&  <button className='absolute left-0 top-1/2 -translate-y-1/2 bg-[#ff4d2d] text-white p-2 rounded-full shadow-lg hover:bg-[#e64528] z-10' onClick={()=>scrollHandler(shopScrollRef,"left")}><FaCircleChevronLeft />
           </button>}
          
 
           <div className='w-full flex overflow-x-auto gap-4 pb-2 ' ref={shopScrollRef}>
-            {shopInMyCity?.map((shop, index) => (
-              <CategoryCard name={shop.name} image={shop.image} key={index} onClick={()=>navigate(`/shop/${shop._id}`)}/>
-            ))}
+            {shopInMyCity?.map((shop, index) => {
+              const isViewOnly = shop.distanceKm > 50
+              return (
+              <div key={index} className='relative shrink-0'>
+                <div className={`${isViewOnly ? 'opacity-50 grayscale' : ''} transition-all`}>
+                  <CategoryCard name={shop.name} image={shop.image} onClick={()=> !isViewOnly ? navigate(`/shop/${shop._id}`) : toast.error(`This restaurant is ${shop.distanceKm}km away. Ordering available within 50km only.`)}/>
+                </div>
+                {shop.distanceKm != null && (
+                  <div className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-xs font-bold shadow ${isViewOnly ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}`}>
+                    {shop.distanceKm} km
+                  </div>
+                )}
+                {isViewOnly && (
+                  <div className='absolute bottom-8 left-1/2 -translate-x-1/2 bg-red-600 text-white text-xs px-2 py-0.5 rounded-full font-semibold whitespace-nowrap'>
+                    View Only
+                  </div>
+                )}
+              </div>
+            )})}
           </div>
           {showRightShopButton &&  <button className='absolute right-0 top-1/2 -translate-y-1/2 bg-[#ff4d2d] text-white p-2 rounded-full shadow-lg hover:bg-[#e64528] z-10' onClick={()=>scrollHandler(shopScrollRef,"right")}>
 <FaCircleChevronRight />

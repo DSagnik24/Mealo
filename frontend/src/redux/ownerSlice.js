@@ -3,14 +3,14 @@ import { createSlice } from "@reduxjs/toolkit";
 const ownerSlice=createSlice({
     name:"owner",
     initialState:{
-        myShopData:null
+        myShopsData:null
     },
     reducers:{
-        setMyShopData:(state,action)=>{
-        state.myShopData=action.payload
+        setMyShopsData:(state,action)=>{
+        state.myShopsData=action.payload
         }
     }
 })
 
-export const {setMyShopData}=ownerSlice.actions
+export const {setMyShopsData}=ownerSlice.actions
 export default ownerSlice.reducer

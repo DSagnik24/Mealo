@@ -43,7 +43,15 @@ function UserOrderCard({ data }) {
                 <div className='text-right'>
                     {data.paymentMethod == "cod" ? <p className='text-sm text-gray-500'>{data.paymentMethod?.toUpperCase()}</p> : <p className='text-sm text-gray-500 font-semibold'>Payment: {data.payment ? "true" : "false"}</p>}
 
-                    <p className='font-medium text-blue-600'>{data.shopOrders?.[0].status}</p>
+                    <p className='font-medium text-blue-600'>
+                         {data.shopOrders.every(so => so.status === 'delivered') 
+                            ? 'delivered' 
+                            : data.shopOrders.some(so => so.status === 'out of delivery')
+                                ? 'out of delivery'
+                                : data.shopOrders.some(so => so.status === 'preparing')
+                                    ? 'preparing'
+                                    : 'pending'}
+                    </p>
                 </div>
             </div>
 
@@ -78,7 +86,14 @@ function UserOrderCard({ data }) {
 
             <div className='flex justify-between items-center border-t pt-2'>
                 <p className='font-semibold'>Total: ₹{data.totalAmount}</p>
-                <button className='bg-[#ff4d2d] hover:bg-[#e64526] text-white px-4 py-2 rounded-lg text-sm' onClick={() => navigate(`/track-order/${data._id}`)}>Track Order</button>
+                {data.shopOrders.every(so => so.status === "delivered") ? (
+                    <div className='flex gap-2 items-center'>
+                        <span className='bg-green-100 text-green-700 px-4 py-2 rounded-lg text-sm font-semibold'>Delivered</span>
+                        <button className='bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-lg text-sm' onClick={() => navigate(`/track-order/${data._id}`)}>View Invoice</button>
+                    </div>
+                ) : (
+                    <button className='bg-[#ff4d2d] hover:bg-[#e64526] text-white px-4 py-2 rounded-lg text-sm' onClick={() => navigate(`/track-order/${data._id}`)}>Track Order</button>
+                )}
             </div>
 
 
